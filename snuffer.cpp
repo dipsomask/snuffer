@@ -16,14 +16,6 @@
 using namespace std;
 using str = string;
 
-void delete_devises(pcap_if_t* devise){
-    
-    if(devise->next != nullptr){
-        delete_devises(devise->next);
-        devise = nullptr;
-    }
-
-}
 
 
 void waiter(const int time, bool& finish){
@@ -76,7 +68,81 @@ void PacketHeader(unsigned char* char_, const struct pcap_pkthdr *header, const 
 
 }
 
+Devise::Devise(pcap_if_t* dev){
+    devise = dev;
 
+    char err_mess[PCAP_ERRBUF_SIZE];
+
+    pcap_t* live_of_devise = pcap_open_live(devise->name, BUFSIZ, 1, 500, err_mess);
+    if(live_of_devise == nullptr){
+        cout << "\nНе получилось открыть девайс '" << devise->name << "', ошибка: " << (str)err_mess << "\n\n";
+    }
+
+}
+
+pcap_t* Devise::GetLiveOfDevise(){
+    return live_of_devise;
+}
+
+pcap_if_t* Devise::GetDevise(){
+    return devise;
+}
+
+void Devise::SendInfo(){
+
+    bool finish = false;
+    thread wait(waiter, 5, ref(finish));
+
+    pcap_loop(live_of_devise, 0, PacketHeader, nullptr);
+
+
+    if (!finish) {
+        pcap_breakloop(live_of_devise);
+    }
+
+    wait.join();
+    pcap_close(live_of_devise);
+
+}
+
+
+DevisesStorage::DevisesStorage(){
+
+    char err_mess[PCAP_ERRBUF_SIZE];
+
+    if(pcap_findalldevs(&deviceAtTheMoment, err_mess) == -1){
+        throw length_error("\nОшибка по функции 'pcap_findalldevs': " + (str)err_mess + "\n");
+    }
+
+}
+
+void DevisesStorage::SnufferProcess(){
+
+    vector<thread> threads;
+
+    pcap_if_t* dev = deviceAtTheMoment;
+    while(dev != nullptr){
+        devices.emplace_back(dev);
+        if(devices.back().GetLiveOfDevise() != nullptr){
+            threads.push_back(thread(&Devise::SendInfo, &devices.back())); 
+        }
+        dev = dev->next;
+    }
+
+    for (auto& t : threads) {
+        t.join();
+    }
+
+    pcap_freealldevs(deviceAtTheMoment);
+
+}
+
+vector<Devise>& DevisesStorage::GetVectorDevs(){
+    return devices;
+}
+
+
+/*
 void CatchPacketsInThread(pcap_t* live_of_devise, str name){
 
     bool finish = false;
@@ -101,10 +167,6 @@ Snuffer::Snuffer(){
     char err_mess[PCAP_ERRBUF_SIZE];
 
     if(pcap_findalldevs(&devises, err_mess) == -1){
-        if(devises != nullptr){
-            delete_devises(devises);
-            devises = nullptr;
-        }
         throw length_error("\nОшибка по функции 'pcap_findalldevs': " + (str)err_mess + "\n");
     }
 
@@ -158,3 +220,6 @@ int Snuffer::SendInfo(){
     return 0;
 
 }
+
+*/
+
