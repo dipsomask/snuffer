@@ -21,8 +21,8 @@ void packet_handler(u_char *args, const struct pcap_pkthdr *header, const u_char
     str return_;
     str source_ip;
     str destination_ip;
-    str source_port{"INF"};
-    str destination_port{"INF"};
+    str source_port;
+    str destination_port;
     str protocol_type;
 
     if (ntohs(eth_header->ether_type) == ETHERTYPE_IP) {
@@ -33,7 +33,7 @@ void packet_handler(u_char *args, const struct pcap_pkthdr *header, const u_char
         if(source_ip == destination_ip){
             return;
         }
-
+        
         if (ip_header->ip_p == IPPROTO_TCP) {
             struct tcphdr *tcp_header = (struct tcphdr *)(packet + sizeof(struct ether_header) + sizeof(struct ip));
             source_port = to_string(ntohs(tcp_header->source));
@@ -50,13 +50,15 @@ void packet_handler(u_char *args, const struct pcap_pkthdr *header, const u_char
 
         else if (ip_header->ip_p == IPPROTO_ICMP) {
             protocol_type = "ICMP";
+            source_port = "INF";
+            destination_port = "INF";
         }
 
         return_ = source_ip + " " + destination_ip + " " + protocol_type + " " + source_port + " " + destination_port;
         
     }
 
-    if(!return_.empty()){
+    if(!return_.empty() && !source_port.empty()){
         cout << return_ << endl;
     }
 
